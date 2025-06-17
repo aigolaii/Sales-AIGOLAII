@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aplikasi Penjualan 16 Cabang</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    input, select, button { margin: 5px; padding: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    canvas { max-width: 100%; margin-top: 30px; }
+    .filter-bar { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>📊 Aplikasi Penjualan 16 Cabang</h2>
+
+  <div>
+    <input type="date" id="tanggal">
+    <select id="cabang">
+      <!-- Nama Cabang -->
+      <option value="Cabang 1">Cabang 1</option>
+      <option value="Cabang 2">Cabang 2</option>
+      <option value="Cabang 3">Cabang 3</option>
+      <option value="Cabang 4">Cabang 4</option>
+      <option value="Cabang 5">Cabang 5</option>
+      <option value="Cabang 6">Cabang 6</option>
+      <option value="Cabang 7">Cabang 7</option>
+      <option value="Cabang 8">Cabang 8</option>
+      <option value="Cabang 9">Cabang 9</option>
+      <option value="Cabang 10">Cabang 10</option>
+      <option value="Cabang 11">Cabang 11</option>
+      <option value="Cabang 12">Cabang 12</option>
+      <option value="Cabang 13">Cabang 13</option>
+      <option value="Cabang 14">Cabang 14</option>
+      <option value="Cabang 15">Cabang 15</option>
+      <option value="Cabang 16">Cabang 16</option>
+    </select>
+    <select id="produk">
+      <option value="Motor">Motor</option>
+      <option value="Mobil">Mobil</option>
+    </select>
+    <input type="number" id="jumlah" placeholder="Jumlah unit" min="1">
+    <button onclick="tambahData()">Tambah Data</button>
+  </div>
+
+  <div class="filter-bar">
+    <label>Filter Cabang:</label>
+    <select id="filterCabang" onchange="tampilkanData()">
+      <option value="">Semua</option>
+      <!-- Isi dengan semua cabang -->
+      <option value="Cabang 1">Cabang 1</option>
+      <option value="Cabang 2">Cabang 2</option>
+      <option value="Cabang 3">Cabang 3</option>
+      <option value="Cabang 4">Cabang 4</option>
+      <option value="Cabang 5">Cabang 5</option>
+      <option value="Cabang 6">Cabang 6</option>
+      <option value="Cabang 7">Cabang 7</option>
+      <option value="Cabang 8">Cabang 8</option>
+      <option value="Cabang 9">Cabang 9</option>
+      <option value="Cabang 10">Cabang 10</option>
+      <option value="Cabang 11">Cabang 11</option>
+      <option value="Cabang 12">Cabang 12</option>
+      <option value="Cabang 13">Cabang 13</option>
+      <option value="Cabang 14">Cabang 14</option>
+      <option value="Cabang 15">Cabang 15</option>
+      <option value="Cabang 16">Cabang 16</option>
+    </select>
+
+    <label>Filter Bulan:</label>
+    <input type="month" id="filterBulan" onchange="tampilkanData()">
+    <button onclick="downloadExcel()">⬇ Export Excel</button>
+  </div>
+
+  <table id="tabelData">
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Cabang</th>
+        <th>Produk</th>
+        <th>Jumlah</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <canvas id="grafik" height="100"></canvas>
+
+  <script>
+    let data = JSON.parse(localStorage.getItem("penjualan")) || [];
+
+    function tambahData() {
+      const tanggal = document.getElementById("tanggal").value;
+      const cabang = document.getElementById("cabang").value;
+      const produk = document.getElementById("produk").value;
+      const jumlah = parseInt(document.getElementById("jumlah").value);
+
+      if (!tanggal || !cabang || !produk || isNaN(jumlah)) {
+        alert("Harap isi semua field!");
+        return;
+      }
+
+      data.push({ tanggal, cabang, produk, jumlah });
+      localStorage.setItem("penjualan", JSON.stringify(data));
+      tampilkanData();
+      resetForm();
+    }
+
+    function resetForm() {
+      document.getElementById("tanggal").value = "";
+      document.getElementById("jumlah").value = "";
+    }
+
+    function tampilkanData() {
+      const tbody = document.querySelector("#tabelData tbody");
+      tbody.innerHTML = "";
+
+      const filterCabang = document.getElementById("filterCabang").value;
+      const filterBulan = document.getElementById("filterBulan").value;
+
+      const filtered = data.filter(d => {
+        return (!filterCabang || d.cabang === filterCabang) &&
+               (!filterBulan || d.tanggal.startsWith(filterBulan));
+      });
+
+      filtered.forEach(d => {
+        const row = `<tr>
+          <td>${d.tanggal}</td>
+          <td>${d.cabang}</td>
+          <td>${d.produk}</td>
+          <td>${d.jumlah}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+
+      updateChart(filtered);
+    }
+
+    function updateChart(filteredData) {
+      const totals = {};
+      filteredData.forEach(d => {
+        totals[d.cabang] = (totals[d.cabang] || 0) + d.jumlah;
+      });
+
+      const labels = Object.keys(totals);
+      const values = Object.values(totals);
+
+      if (window.barChart) window.barChart.destroy();
+      const ctx = document.getElementById("grafik").getContext("2d");
+      window.barChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Total Penjualan",
+            data: values,
+            backgroundColor: "rgba(54, 162, 235, 0.6)"
+          }]
+        }
+      });
+    }
+
+    function downloadExcel() {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
+      XLSX.writeFile(wb, "data_penjualan.xlsx");
+    }
+
+    tampilkanData();
+  </script>
+</body>
+</html>
